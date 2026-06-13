@@ -1,0 +1,309 @@
+> ###########################################################  
+> accepts <- posterior %>%
++   dplyr::group_by(chain) %>%
++   dplyr::summarise(
++     # A step is accepted if ANY of the estimated parameters changed value
++     accept_rate = mean(diff(w) != 0 | diff(beta_par) != 0 | diff(k) != 0)
++   )
+> accepts
+# A tibble: 5 × 2
+  chain accept_rate
+  <int>       <dbl>
+1     1       0.244
+2     2       0.197
+3     3       0.246
+4     4       0.241
+5     5       0.240
+> # Select the parameters of interest
+> post <- posterior %>% 
++   dplyr::select(w, beta_par,k, chain, iter)
+> # Ensure chain is treated as character
+> chains <- post %>% mutate(chain = as.character(chain))
+> # Pivot both w and beta_par into long format
+> chains.long <- chains %>%
++   pivot_longer(cols = c(w, beta_par,k), 
++                names_to = "variable", 
++                values_to = "value")
+> plot_names <- as_labeller(c(
++   'w' = "paste(hat(w))",
++   'beta_par' = "paste(hat(beta))",
++   'k' = "paste(hat(k))"
++ ), label_parsed)
+> # Plot both parameters in facets
+> ggplot(chains.long, aes(x = iter, y = value, group = chain)) + 
++   geom_line(aes(color = chain)) + 
++   theme_minimal() +
++   #scale_y_continuous(limits = c(c(0, 1),c(0,1),c(0,10)))+
++   scale_color_manual(values = c("#F0E442","#000000", "#009E73","#999999","#0072B2")) + 
++   facet_wrap(vars(variable), labeller = plot_names, scales = 'free', ncol = 1) +
++   labs(title = "",
++        x = "Iteration", y = "Parameter Value") + 
++   theme(
++     title = element_text(size = 18),
++     strip.text = element_text(size = 20),
++     axis.title = element_text(size = 18),
++     panel.spacing = unit(0, "lines"),
++     plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), 'cm')
++   )
+> ##################
+> post.list <- split(post, f = post$chain)  # converts the dataframes back into a list for post-processing
+> mcmc.list <- mcmc.list(list())
+> ### Fills the list with MCMC objects
+> for(i in seq_along(post.list)){
++   mcmc.list[[i]] <- mcmc(post.list[[i]])
++ }
+> effectiveSize(mcmc.list)
+       w beta_par        k    chain     iter 
+1624.939 1838.884 2682.549    0.000    0.000 
+> ### Perform Diagnistic Tests for convergence and burn-in
+> raftery.diag(mcmc.list, q=0.025, r=0.005, s=0.95, converge.eps=0.001)
+[[1]]
+
+Quantile (q) = 0.025
+Accuracy (r) = +/- 0.005
+Probability (s) = 0.95 
+                                                
+          Burn-in  Total Lower bound  Dependence
+          (M)      (N)   (Nmin)       factor (I)
+ w        69       76506 3746         20.400    
+ beta_par 55       60228 3746         16.100    
+ k        27       28556 3746          7.620    
+ chain    <NA>     <NA>  3746             NA    
+ iter     1731     1731  3746          0.462    
+
+
+[[2]]
+
+Quantile (q) = 0.025
+Accuracy (r) = +/- 0.005
+Probability (s) = 0.95 
+                                                  
+          Burn-in  Total   Lower bound  Dependence
+          (M)      (N)     (Nmin)       factor (I)
+ w        1785     2073194 3746         553.000   
+ beta_par 1785     2073194 3746         553.000   
+ k        27       28648   3746           7.650   
+ chain    <NA>     <NA>    3746              NA   
+ iter     1731     1731    3746           0.462   
+
+
+[[3]]
+
+Quantile (q) = 0.025
+Accuracy (r) = +/- 0.005
+Probability (s) = 0.95 
+                                                
+          Burn-in  Total Lower bound  Dependence
+          (M)      (N)   (Nmin)       factor (I)
+ w        35       37776 3746         10.100    
+ beta_par 33       35751 3746          9.540    
+ k        35       38509 3746         10.300    
+ chain    <NA>     <NA>  3746             NA    
+ iter     1731     1731  3746          0.462    
+
+
+[[4]]
+
+Quantile (q) = 0.025
+Accuracy (r) = +/- 0.005
+Probability (s) = 0.95 
+                                                
+          Burn-in  Total Lower bound  Dependence
+          (M)      (N)   (Nmin)       factor (I)
+ w        37       41906 3746         11.200    
+ beta_par 36       39980 3746         10.700    
+ k        27       28790 3746          7.690    
+ chain    <NA>     <NA>  3746             NA    
+ iter     1731     1731  3746          0.462    
+
+
+[[5]]
+
+Quantile (q) = 0.025
+Accuracy (r) = +/- 0.005
+Probability (s) = 0.95 
+                                                
+          Burn-in  Total Lower bound  Dependence
+          (M)      (N)   (Nmin)       factor (I)
+ w        51       55976 3746         14.900    
+ beta_par 39       42283 3746         11.300    
+ k        26       27859 3746          7.440    
+ chain    <NA>     <NA>  3746             NA    
+ iter     1731     1731  3746          0.462    
+
+
+> geweke.diag(mcmc.list, frac1=0.5, frac2=0.25)
+[[1]]
+
+Fraction in 1st window = 0.5
+Fraction in 2nd window = 0.25 
+
+       w beta_par        k    chain     iter 
+  0.6075   0.9369   0.4116      NaN     -Inf 
+
+
+[[2]]
+
+Fraction in 1st window = 0.5
+Fraction in 2nd window = 0.25 
+
+       w beta_par        k    chain     iter 
+-0.06804  0.73847 -1.12533      NaN     -Inf 
+
+
+[[3]]
+
+Fraction in 1st window = 0.5
+Fraction in 2nd window = 0.25 
+
+       w beta_par        k    chain     iter 
+-0.03314 -0.07152 -2.43456      NaN     -Inf 
+
+
+[[4]]
+
+Fraction in 1st window = 0.5
+Fraction in 2nd window = 0.25 
+
+       w beta_par        k    chain     iter 
+  0.5346   0.7451   1.1115      NaN     -Inf 
+
+
+[[5]]
+
+Fraction in 1st window = 0.5
+Fraction in 2nd window = 0.25 
+
+       w beta_par        k    chain     iter 
+-0.89461 -0.90475  0.06321      NaN     -Inf 
+
+
+> gelman.diag(mcmc.list, confidence = 0.95, transform = FALSE, autoburnin = TRUE, multivariate = FALSE)
+Potential scale reduction factors:
+
+         Point est. Upper C.I.
+w              1.01       1.01
+beta_par       1.00       1.01
+k              1.00       1.00
+chain           Inf        NaN
+iter            NaN        NaN
+
+> #Post-process the chains
+> processed <- window(mcmc.list, start=1000, end=M+1, thin=1)
+> processed <- data.frame(do.call(rbind, processed))
+> processed.long <- processed %>%
++   pivot_longer(cols = c(w, beta_par,k),
++                names_to = "variable",
++                values_to = "value")
+> nrow(processed)
+[1] 45010
+> # Posterior summaries for w
+> w_mode <- as.vector(posterior.mode(mcmc(processed$w), adjust=1))
+> w_low  <- ci(processed$w, ci=0.95, method="HDI")$CI_low
+> w_hi   <- ci(processed$w, ci=0.95, method="HDI")$CI_high
+> # Posterior summaries for beta_par
+> beta_par_mode <- as.vector(posterior.mode(mcmc(processed$beta_par), adjust=1))
+> beta_par_low  <- ci(processed$beta_par, ci=0.95, method="HDI")$CI_low
+> beta_par_hi   <- ci(processed$beta_par, ci=0.95, method="HDI")$CI_high
+> k_mode <- as.vector(posterior.mode(mcmc(processed$k), adjust=1))
+> k_low  <- ci(processed$k, ci=0.95, method="HDI")$CI_low
+> k_hi   <- ci(processed$k, ci=0.95, method="HDI")$CI_high
+> library(bayestestR)
+> library(logspline)
+> prior_w <- runif(nrow(processed), min = 0, max = 1)
+> bf <- bayesfactor_parameters(processed$w, prior = prior_w, null = 0)
+> print(bf)
+Bayes Factor (Savage-Dickey density ratio)
+
+BF      
+--------
+2.03e+04
+
+* Evidence Against The Null: 0
+> # Combine into a summary data frame
+> summaries <- data.frame(
++   variable = c("w", "beta_par","k"),
++   true     = c(w=0.6,
++                beta_par=0.000025,
++                k=3),
++   mode     = c(w_mode, beta_par_mode, k_mode),
++   low      = c(w_low, beta_par_low, k_low),
++   high     = c(w_hi, beta_par_hi, k_hi)
++ )
+> summaries <- summaries %>% 
++   mutate(across(where(is.numeric), ~ signif(.x, digits = 3)))
+> # 1. Dynamically build levels: w first, then beta_par, then k, then any leftovers
+> existing_vars <- unique(as.character(processed.long$variable))
+> lvl <- c("w", "beta_par", "k")
+> lvl <- c(lvl, setdiff(existing_vars, lvl)) # Adds any other variables at the end
+> processed.long$variable <- factor(processed.long$variable, levels = lvl)
+> summaries$variable <- factor(summaries$variable, levels = lvl)
+> # 1. Create a dummy data frame to force the x-axis limits for 'w'
+> blank_data <- data.frame(variable = "w", value = c(0, 1))
+> blank_data$variable <- factor(blank_data$variable, levels = levels(processed.long$variable))
+> # 2. Update the plot
+> P <- ggplot(processed.long, aes(x = value, fill = variable, color = variable)) + 
++   theme_minimal() + 
++   # This hidden layer forces the x-axis for 'w' to 0 and 1
++   geom_blank(data = blank_data) + 
++   geom_histogram(aes(y = ..density..), position = "identity", alpha = 0.2, bins = 50) + 
++   geom_density(alpha = .2, adjust = 2) + 
++   geom_vline(data = summaries, aes(xintercept = mode), color = "black", linewidth = 0.75, linetype = 2) + 
++   geom_vline(data = summaries, aes(xintercept = true), color = "red", linewidth = 0.75, linetype = 2) + 
++   geom_rect(data = summaries, aes(xmin = low, xmax = high, ymin = 0, ymax = Inf), 
++             inherit.aes = FALSE, alpha = 0.1, fill = "grey20") + 
++   facet_wrap(vars(variable), labeller = plot_names, scales = 'free', ncol = 1) + 
++   scale_fill_manual(values = c("w" = "#0072B2", "beta_par" = "grey40", "k" = "grey40")) + 
++   scale_color_manual(values = c("w" = "#0072B2", "beta_par" = "grey40", "k" = "grey40")) + 
++   labs(title = "A", x = "Parameter Value", y = "Density") + 
++   # Note: removed 'expand' here or set it to 0 if you want the limits to be EXACTLY 0 and 1
++   scale_x_continuous(n.breaks = 6) + 
++   scale_y_continuous(expand = expansion(mult = 0.2), n.breaks = 6) + 
++   theme(title = element_text(size = 20, face="bold"), 
++         strip.text = element_text(size = 20), 
++         axis.title.x = element_text(size = 20), 
++         axis.title.y = element_text(size = 20), 
++         axis.text = element_text(size = 15, color = "black"), 
++         panel.spacing = unit(0, "lines"),
++         legend.position = "none")
+> plot(P)
+> clean_summary_df <- function(summary_obj) {
++   df <- as.data.frame(summary_obj)
++   
++   # 1. Ensure parameter names are explicitly captured as the first column
++   if (!"Parameter" %in% colnames(df)) {
++     df <- cbind(Parameter = rownames(df), df)
++   }
++   rownames(df) <- NULL
++   
++   # 2. Identify and format columns that contain numbers (even if stored as text)
++   # We skip the text-based columns like "Parameter" and "variable"
++   cols_to_convert <- c("true", "mode", "low", "high")
++   
++   for (col in cols_to_convert) {
++     if (col %in% colnames(df)) {
++       # Force text like "2.5e-05" into actual numbers
++       numeric_values <- as.numeric(as.character(df[[col]]))
++       
++       # Format strictly as decimals with up to 6 decimal places, no scientific notation
++       df[[col]] <- format(round(numeric_values, 10), scientific = FALSE, drop0trailing = TRUE)
++     }
++   }
++   
++   return(df)
++ }
+> cleaned_summary <- clean_summary_df(summaries)
+> # View your newly formatted data
+> print(cleaned_summary)
+  Parameter variable     true      mode       low      high
+1         w        w      0.6     0.599     0.458     0.695
+2  beta_par beta_par 0.000025 0.0000257 0.0000214 0.0000287
+3         k        k        3      2.93      2.38      3.58
+> ggsave(
++   filename = "post_w06_June.pdf",
++   width    = 9,
++   height   = 10,
++   units    = "in",
++   device   = "pdf"
++ )
+> 
