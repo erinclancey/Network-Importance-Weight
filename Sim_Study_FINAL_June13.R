@@ -59,8 +59,8 @@ for (i in 1:nrow(pars)){
   nchains=5
   w = runif(nchains, 0.4,0.6)
   beta_par = runif(nchains, 0.00002*10000, 0.00003*10000)
-  gamma = rep(pars["gamma"], nchains)
-  rho = rep(pars["rho"], nchains)
+  gamma = rep(pars["gamma"][i,], nchains)
+  rho = rep(pars["rho"][i,], nchains)
   k = runif(nchains, 1,2)
   A_frame =  as.data.frame(matrix(rep(A_vec, 5), nrow = 5, byrow = TRUE))
   colnames(A_frame) <- A_names
@@ -101,6 +101,10 @@ for (i in 1:nrow(pars)){
   good_chains <- accepts %>%
     filter(accept_rate >= 0.09) %>%
     pull(chain) 
+  
+  if (length(good_chains) <2) {
+    next # Skips to next iteration if good_chains is empty
+  }
   
   # 3. Subset your posterior data to keep only those good chains
   posterior_filtered <- posterior %>%
@@ -145,7 +149,7 @@ for (i in 1:nrow(pars)){
   print(i)
 }  
 
-write.csv(sim_study, file="network_simstudy_June13.csv")
+write.csv(sim_study, file="network_simstudy_June28.csv")
 
 
 
