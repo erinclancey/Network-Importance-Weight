@@ -1,5 +1,5 @@
 setwd("~/BRUCE-CHAIN-main/Network MS")
-source("Network Mech Model Pomp_SETUP (1).R")
+source("Network Mech Model Pomp_SETUP_prior.R")
 
 # 1. Define the parameter grid arrays
 w_vals <- seq(0, 1, by = 0.01)   # Adjust range/grain as needed
@@ -98,15 +98,26 @@ for (i in 1:nrow(grid_results)) {
 grid_results$LL_diff[grid_results$LL_diff < 0] <- 0
 grid_results$LL_diff_log <- log(grid_results$LL_diff, base=10)
 View(grid_results)
+grid_results <- na.omit(grid_results)
+
+library(dplyr)
+
+grid_results <- grid_results %>%
+  mutate(LL_diff_log_new = if_else(LL_diff_log == -Inf, -3, LL_diff_log))
+
+grid_results <- grid_results %>%
+  mutate(LL_diff_new = if_else(LL_diff<0.0001, 0.0001, LL_diff))
+
+#write.csv(grid_results, file="grid_results.csv")
 # Generate Heat Map Plot
-heatmap_plot <- ggplot(grid_results, aes(x = w, y = p, fill = LL_diff_log)) +
+heatmap_plot <- ggplot(grid_results, aes(x = w, y = p, fill = LL_diff_new)) +
   geom_tile(color = "white", lwd = 0.2, linetype = 1) +
   scale_fill_viridis_c(name = "LL Diff", option = "viridis", na.value = "grey90") +
   labs(
-    title = "Likelihood Ratio Profile Surface (LL_diff)",
-    subtitle = "Varying Entry Weight (w) and Connectivity Probability (p)",
-    x = "Network Entry Weight (w)",
-    y = "Matrix Connection Probability (p)"
+    title = "Likelihood Ratio Profile Surface (LL Diff)",
+    subtitle = "Network Importance Weight (w) and Expected Connectance",
+    x = "Network Importance Weight (w)",
+    y = "Expected Connectance"
   ) +
   theme_minimal() +
   theme(
@@ -116,4 +127,33 @@ heatmap_plot <- ggplot(grid_results, aes(x = w, y = p, fill = LL_diff_log)) +
 
 # Render Plot
 print(heatmap_plot)
+
+library(ggplot2)
+
+heatmap_plot <- ggplot(grid_results, aes(x = w, y = p, z = LL_diff_log_new)) + 
+  # Creates the smooth, continuous filled contour regions
+  geom_contour_filled(bins = 5) + 
+  # Optional: Adds thin lines between the contour levels for extra definition
+  geom_contour(color = "white", linewidth = 0.1, alpha = 0.3) +
+  # Use a continuous/binned color palette matching your desired style
+  scale_fill_viridis_d(
+    name = "LL Diff", 
+    option = "viridis",
+    direction = 1
+  ) + 
+  labs( 
+    title = "Likelihood Ratio Profile Surface (LL Diff)", 
+    subtitle = "Network Importance Weight (w) and Expected Connectance", 
+    x = "Network Importance Weight (w)", 
+    y = "Expected Connectance" 
+  ) + 
+  theme_minimal() + 
+  theme( 
+    plot.title = element_text(face = "bold", size = 14), 
+    axis.title = element_text(face = "bold") 
+  )
+
+# Display the plot
+print(heatmap_plot)
+
 
