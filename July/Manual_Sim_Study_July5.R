@@ -5,6 +5,28 @@
 # # proposal for the first iteration
 # proposal <- mvn_diag_rw(rw.sd)
 # 
+registerDoParallel()
+registerDoRNG(2488320)
+
+# rw.var <- matrix(
+#   c(0.0012,  0,        0,     # Dropped from 0.0020
+#     0,       0.00007,  0,     # Dropped from 0.00011
+#     0,       0,        0.050),# Dropped from 0.085
+#   nrow = 3, 
+#   dimnames = list(
+#     c("w", "beta_par", "k"), 
+#     c("w", "beta_par", "k")
+#   )
+# )
+# proposal <- mvn_rw_adaptive(
+#   rw.var=rw.var,
+#   scale.start = 1,
+#   scale.cooling = 0.999,
+#   shape.start = 500,
+#   target = 0.234,
+#   max.scaling = 50
+# )
+
 
 rw.var <- matrix(
   c(0.01, 0, 0,
@@ -16,7 +38,6 @@ rw.var <- matrix(
     c("w", "beta_par", "k")
   )
 )
-
 proposal <- mvn_rw_adaptive(
   rw.var=rw.var,
   scale.start = 1,
@@ -29,12 +50,12 @@ proposal <- mvn_rw_adaptive(
 
 
 ##############Data Frame for Sim Study####################
-sim_study <- data.frame(matrix(ncol = 22, nrow = nrow(pars)))
+sim_study <- data.frame(matrix(ncol = 23, nrow = nrow(pars)))
 x <- c("w_true","w_mode","w_low_H","w_hi_H","w_mean","w_low_E","w_hi_E",
        "beta_par_true","beta_par_mode","beta_par_low_H","beta_par_hi_H",
        "beta_par_mean","beta_par_low_E","beta_par_hi_E",
        "k_true","k_mode","k_low_H","k_hi_H", "k_mean","k_low_E","k_hi_E",
-       "BF")
+       "BF", "post_size")
 colnames(sim_study) <- x
 #############################################################
 i=2
@@ -78,7 +99,7 @@ theta.start <- data.frame(cbind(w,beta_par,gamma,rho,k, A_frame))
 pomp_dat %>%pfilter(params=theta.start[5,],Np=50) -> pf
 logLik(pf)
 
-M=5000
+M=10000
 start_time <- Sys.time()
 foreach (theta.start=iter(theta.start,"row"), .inorder=FALSE) %dopar% {
   library(pomp)
@@ -104,8 +125,8 @@ for(j in seq_along(list_results_pmcmc)){
 }
 
 posterior <- do.call(rbind, list_results_pmcmc)
-# post_name <- paste0("post_", i, ".csv")
-# write.csv(posterior, file = post_name, row.names = FALSE)
+post_name <- paste0("post3_", i, ".csv")
+write.csv(posterior, file = post_name, row.names = FALSE)
 
 param_cov <- cov(posterior[, c("w", "beta_par", "k")])
 
@@ -116,8 +137,15 @@ accepts <- posterior %>%
     # A step is accepted if ANY of the estimated parameters changed value
     accept_rate = mean(diff(w) != 0 | diff(beta_par) != 0 | diff(k) != 0)
   )
-accepts
-####################################################
+
+# 1. Identify the valid chains dynamically
+valid_chains <- accepts %>% 
+  filter(accept_rate > 0.18) %>% 
+  pull(chain)
+
+# 2. Filter the main posterior dataframe
+posterior <- posterior %>% 
+  filter(chain %in% valid_chains)
 
 ### Post-process the chains
 
@@ -183,7 +211,7 @@ processed.long <- processed %>%
                names_to = "variable",
                values_to = "value")
 
-nrow(processed)
+sim_study$post_size[i] <- nrow(processed)
 
 # Posterior summaries for w
 sim_study$w_mode[i] <- as.vector(posterior.mode(mcmc(processed$w), adjust=1))
@@ -309,7 +337,7 @@ cleaned_summary <- clean_summary_df(summaries)
 # View your newly formatted data
 print(cleaned_summary)
 
-#write.csv(sim_study, file="manual_simstudy_July6.csv")
+write.csv(sim_study, file="manual_simstudy_July10_2.csv")
 
 
 
