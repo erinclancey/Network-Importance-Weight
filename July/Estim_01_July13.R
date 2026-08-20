@@ -118,7 +118,7 @@ p %>%
                                    x0 = c(w, beta_par, k)),
                  aes(xintercept = x0),
                  color = "black",
-                 inherit.aes = FALSE)
+                 inherit.aes = FALSE)+
   ggtitle("Profile Likelihood- Network 30% Connected")
 
 
@@ -188,7 +188,9 @@ for(i in seq_along(list_results_pmcmc)){
 
 posterior <- do.call(rbind, list_results_pmcmc)
 
-write.csv(posterior, file="estim_01_July13.csv")
+#write.csv(posterior, file="estim_01_July13.csv")
+
+posterior <- read.csv(file="estim_01_July13.csv", header=TRUE)
 
 posterior$beta_par <- posterior$beta_par/10000
 
@@ -336,7 +338,7 @@ P <- ggplot(processed.long, aes(x = value, fill = variable, color = variable)) +
   facet_wrap(vars(variable), labeller = plot_names, scales = 'free', ncol = 1) + 
   scale_fill_manual(values = c("w" = "#0072B2", "beta_par" = "grey40", "k" = "grey40")) + 
   scale_color_manual(values = c("w" = "#0072B2", "beta_par" = "grey40", "k" = "grey40")) + 
-  labs(title = "A", x = "Parameter Value", y = "Density") + 
+  labs(title = "w=0.1", x = "Parameter Value", y = "Density") + 
   # Note: removed 'expand' here or set it to 0 if you want the limits to be EXACTLY 0 and 1
   scale_x_continuous(n.breaks = 6) + 
   scale_y_continuous(expand = expansion(mult = 0.2), n.breaks = 6) + 
@@ -382,13 +384,204 @@ cleaned_summary <- clean_summary_df(summaries)
 # View your newly formatted data
 print(cleaned_summary)
 
+# ggsave(
+#   filename = "post_w01_July.pdf",
+#   width    = 9,
+#   height   = 10,
+#   units    = "in",
+#   device   = "pdf"
+# )
+
 ggsave(
   filename = "post_w01_July.pdf",
-  width    = 9,
+  width    = 7,
   height   = 10,
   units    = "in",
   device   = "pdf"
 )
 
+
+#######################
+
+HDI_post <- posterior %>%
+  filter(
+    w >= as.numeric(cleaned_summary$low[1]) & w <= as.numeric(cleaned_summary$high[1]),
+    beta_par >= as.numeric(cleaned_summary$low[2]) & beta_par <= as.numeric(cleaned_summary$high[2]),
+    k >= as.numeric(cleaned_summary$low[3]) & k <= as.numeric(cleaned_summary$high[3]) )
+
+# Sample 1000 rows without replacement
+HDI_sample <- HDI_post %>% 
+  slice_sample(n = 1000)
+
+HDI_sample$Incidence_alt <- rep(NA,nrow(HDI_sample))
+HDI_sample$Cases_alt <- rep(NA, nrow(HDI_sample))
+HDI_sample$Incidence_null <- rep(NA,nrow(HDI_sample))
+HDI_sample$Cases_null <- rep(NA, nrow(HDI_sample))
+
+max_attempts <- 100  # Set maximum retries per scenario
+
+for (i in 1:nrow(HDI_sample)) {
+  w_alt <- HDI_sample$w[i]
+  w_null <- 0
+  beta_post <- HDI_sample$beta_par[i] * 10000
+  k_post <- HDI_sample$k[i]
+  
+  # --- ALTERNATIVE SCENARIO ---
+  pars_alt <- c(w_alt, beta_post, gamma, rho, k_post, A_vec)
+  names(pars_alt) <- paramnames
+  
+  attempts <- 0
+  sims_alt <- NULL
+  
+  repeat {
+    attempts <- attempts + 1
+    
+    sim <- gen_data %>%
+      simulate(
+        params = pars_alt,
+        nsim = 1,
+        format = "data.frame",
+        include.data = FALSE
+      )
+    
+    nonzero_check <- colSums(sim[, paste0("reports", 1:5)]) > 0
+    
+    if (all(nonzero_check)) {
+      sims_alt <- sim
+      break
+    }
+    
+    if (attempts >= max_attempts) {
+      warning(paste("Alternative scenario reached max attempts at row", i))
+      break
+    }
+  }
+  
+  if (!is.null(sims_alt)) {
+    HDI_sample$Incidence_alt[i] <- sum(sims_alt[, c("H1", "H2", "H3", "H4", "H5")])
+    HDI_sample$Cases_alt[i] <- sum(sims_alt[, paste0("reports", 1:5)])
+  } else {
+    HDI_sample$Incidence_alt[i] <- NA
+    HDI_sample$Cases_alt[i] <- NA
+  }
+  
+  # --- NULL SCENARIO ---
+  pars_null <- c(w_null, beta_post, gamma, rho, k_post, A_vec)
+  names(pars_null) <- paramnames
+  
+  attempts <- 0
+  sims_null <- NULL
+  
+  repeat {
+    attempts <- attempts + 1
+    
+    sim <- gen_data %>%
+      simulate(
+        params = pars_null,
+        nsim = 1,
+        format = "data.frame",
+        include.data = FALSE
+      )
+    
+    nonzero_check <- colSums(sim[, paste0("reports", 1:5)]) > 0
+    
+    if (all(nonzero_check)) {
+      sims_null <- sim
+      break
+    }
+    
+    if (attempts >= max_attempts) {
+      warning(paste("Null scenario reached max attempts at row", i))
+      break
+    }
+  }
+  
+  if (!is.null(sims_null)) {
+    HDI_sample$Incidence_null[i] <- sum(sims_null[, c("H1", "H2", "H3", "H4", "H5")])
+    HDI_sample$Cases_null[i] <- sum(sims_null[, paste0("reports", 1:5)])
+  } else {
+    HDI_sample$Incidence_null[i] <- NA
+    HDI_sample$Cases_null[i] <- NA
+  }
+}
+
+# Calculate per-capita incidence (ignoring failed runs)
+HDI_sample$attack_rate_alt <- HDI_sample$Incidence_alt / (5000 * 5)
+HDI_sample$attack_rate_null <- HDI_sample$Incidence_null / (5000 * 5)
+HDI_sample$diff_AR <- HDI_sample$attack_rate_null - HDI_sample$attack_rate_alt
+hist(HDI_sample$diff_AR)
+library(bayestestR)
+# 95% High Density Interval of the paired difference
+diff_hdi <- hdi(HDI_sample$diff_AR , ci = 0.95)
+print(diff_hdi, digits = 8)
+
+
+library(ggplot2)
+library(bayestestR)
+
+# 1. Compute HDI
+diff_hdi <- hdi(HDI_sample$diff_AR, ci = 0.95)
+ci_low <- diff_hdi$CI_low
+ci_high <- diff_hdi$CI_high
+
+# 2. Build summary dataframe for HDI shading and reference lines
+diff_summary <- data.frame(
+  low = ci_low,
+  high = ci_high,
+  zero_ref = 0
+)
+
+# 3. Plot matching your custom template
+ggplot(HDI_sample, aes(x = diff_AR)) +
+  theme_minimal() +
+  
+  # Histogram & Density overlay using density scaling
+  geom_histogram(aes(y = after_stat(density)), fill = "#D55E00", color = "#D55E00", position = "identity", alpha = 0.2, bins = 50) +
+  geom_density(fill = "#D55E00", color = "#D55E00", alpha = 0.2, adjust = 2) +
+  
+  # Shaded 95% HDI Rectangle
+  geom_rect(
+    data = diff_summary,
+    aes(xmin = low, xmax = high, ymin = 0, ymax = Inf),
+    inherit.aes = FALSE,
+    alpha = 0.1,
+    fill = "grey20"
+  ) +
+  
+  # Vertical reference line at 0 (matching your dashed red line style)
+  geom_vline(
+    data = diff_summary,
+    aes(xintercept = zero_ref),
+    color = "red",
+    linewidth = 0.75,
+    linetype = 2
+  ) +
+  
+  # Labels and Axis Formatting
+  labs(
+    title = "w=0.1",
+    x = expression(Delta ~ "Attack Rate" ~ (H[0]-H[A])),
+    y = "Density"
+  ) +
+  scale_x_continuous(n.breaks = 6) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2)), n.breaks = 6) +
+  
+  # Theme and Font Sizing matching your original setup
+  theme(
+    title = element_text(size = 20, face = "bold"),
+    strip.text = element_text(size = 20),
+    axis.title.x = element_text(size = 20),
+    axis.title.y = element_text(size = 20),
+    axis.text = element_text(size = 15, color = "black"),
+    panel.spacing = unit(0, "lines"),
+    legend.position = "none"
+  )
+ggsave(
+  filename = "AR_post_w01_aug.pdf",
+  width    = 7,
+  height   = 5,
+  units    = "in",
+  device   = "pdf"
+)
 
 

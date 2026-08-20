@@ -118,7 +118,7 @@ p %>%
                                    x0 = c(w, beta_par, k)),
                  aes(xintercept = x0),
                  color = "black",
-                 inherit.aes = FALSE)+
+                 inherit.aes = FALSE)
   ggtitle("Profile Likelihood- Network 30% Connected")
 
 
@@ -337,7 +337,7 @@ P <- ggplot(processed.long, aes(x = value, fill = variable, color = variable)) +
   facet_wrap(vars(variable), labeller = plot_names, scales = 'free', ncol = 1) + 
   scale_fill_manual(values = c("w" = "#0072B2", "beta_par" = "grey40", "k" = "grey40")) + 
   scale_color_manual(values = c("w" = "#0072B2", "beta_par" = "grey40", "k" = "grey40")) + 
-  labs(title = "A", x = "Parameter Value", y = "Density") + 
+  labs(title = "w=0", x = "Parameter Value", y = "Density") + 
   # Note: removed 'expand' here or set it to 0 if you want the limits to be EXACTLY 0 and 1
   scale_x_continuous(n.breaks = 6) + 
   scale_y_continuous(expand = expansion(mult = 0.2), n.breaks = 6) + 
@@ -383,13 +383,13 @@ cleaned_summary <- clean_summary_df(summaries)[,-2]
 # View your newly formatted data
 print(cleaned_summary)
 
-# ggsave(
-#   filename = "post_w0_aug.pdf",
-#   width    = 9,
-#   height   = 10,
-#   units    = "in",
-#   device   = "pdf"
-# )
+ggsave(
+  filename = "post_w0_aug.pdf",
+  width    = 7,
+  height   = 10,
+  units    = "in",
+  device   = "pdf"
+)
 
 #######################
 
@@ -549,8 +549,8 @@ ggplot(HDI_sample, aes(x = diff_AR)) +
   
   # Labels and Axis Formatting
   labs(
-    title = "A",
-    x = expression(Delta ~ "Attack Rate" ~ (H[A]-H[0])),
+    title = "w=0",
+    x = expression(Delta ~ "Attack Rate" ~ (H[0]-H[A])),
     y = "Density"
   ) +
   scale_x_continuous(n.breaks = 6) +
@@ -566,55 +566,11 @@ ggplot(HDI_sample, aes(x = diff_AR)) +
     panel.spacing = unit(0, "lines"),
     legend.position = "none"
   )
-# 
-# # 1. Reshape data from wide to long format
-# df_long <- HDI_sample %>%
-#   select(attack_rate_alt, attack_rate_null) %>%
-#   pivot_longer(
-#     cols = c(attack_rate_alt, attack_rate_null),
-#     names_to = "variable",
-#     values_to = "attack_rate"
-#   )
-# 
-# # 2. Plot overlapping histograms
-# ggplot(df_long, aes(x = attack_rate, fill = variable)) +
-#   geom_histogram(alpha = 0.5, position = "identity", bins = 30, color = "black") +
-#   scale_fill_manual(
-#     values = c("attack_rate_alt" = "#0072B2", "attack_rate_null" = "#D55E00"),
-#     labels = c("Alternative", "Null")
-#   ) +
-#   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
-#   labs(
-#     x = "Attack Rate",
-#     y = "Frequency",
-#     fill = "Model Scenario",
-#     title = "Distribution of Attack Rates (Alt vs. Null)"
-#   ) +
-#   theme_minimal(base_size = 14)
-# 
-# 
-# # 1. Reshape data from wide to long format
-# df_long <- HDI_sample %>%
-#   select(Cases_alt, Cases_null) %>%
-#   pivot_longer(
-#     cols = c(Cases_alt, Cases_null),
-#     names_to = "variable",
-#     values_to = "cases"
-#   )
-# 
-# # 2. Plot overlapping histograms
-# ggplot(df_long, aes(x = cases, fill = variable)) +
-#   geom_histogram(alpha = 0.5, position = "identity", bins = 30, color = "black") +
-#   scale_fill_manual(
-#     values = c("Cases_alt" = "#0072B2", "Cases_null" = "#D55E00"),
-#     labels = c("Alternative", "Null")
-#   ) +
-#   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
-#   labs(
-#     x = "Total Cases",
-#     y = "Frequency",
-#     fill = "Model Scenario",
-#     title = "Total Cases (Alt vs. Null)"
-#   ) +
-#   theme_minimal(base_size = 14)
-# 
+
+ggsave(
+  filename = "AR_post_w0_aug.pdf",
+  width    = 7,
+  height   = 5,
+  units    = "in",
+  device   = "pdf"
+)
