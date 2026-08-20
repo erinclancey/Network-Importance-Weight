@@ -132,26 +132,26 @@ ggplot(df_transformed, aes(x = factor(w_per), y = incidence_diff)) +
     axis.text = element_text(color = "black")
   )
 
-
-library(dplyr)
-
-# Run a paired test for each w_per level against the w_per = 0 baseline
-significance_summary <- df_transformed %>%
-  filter(w_per != 0) %>% # Drop 0 since it's the comparison group
-  group_by(w_per) %>%
-  summarize(
-    # Tests if the mean difference is significantly different from 0
-    p_value = t.test(incidence_diff)[["p.value"]],
-    mean_change = mean(incidence_diff)
-  ) %>%
-  mutate(
-    # Apply a Bonferroni correction because you are doing multiple comparisons
-    p_adjusted = p.adjust(p_value, method = "bonferroni"),
-    # Mark significance with standard asterisks
-    significant = ifelse(p_adjusted < 0.05, "Yes", "No")
-  )
-
-print(significance_summary)
+# 
+# library(dplyr)
+# 
+# # Run a paired test for each w_per level against the w_per = 0 baseline
+# significance_summary <- df_transformed %>%
+#   filter(w_per != 0) %>% # Drop 0 since it's the comparison group
+#   group_by(w_per) %>%
+#   summarize(
+#     # Tests if the mean difference is significantly different from 0
+#     p_value = t.test(incidence_diff)[["p.value"]],
+#     mean_change = mean(incidence_diff)
+#   ) %>%
+#   mutate(
+#     # Apply a Bonferroni correction because you are doing multiple comparisons
+#     p_adjusted = p.adjust(p_value, method = "bonferroni"),
+#     # Mark significance with standard asterisks
+#     significant = ifelse(p_adjusted < 0.05, "Yes", "No")
+#   )
+# 
+# print(significance_summary)
 
 
 
