@@ -1,23 +1,29 @@
-setwd("~/BRUCE-CHAIN-main/Network MS/July 2026")
+setwd("~/BRUCE-CHAIN-main/Network MS/July")
 source("SETUP Mech Model_July.R")
+library(ggplot2)
+library(dplyr)
+library(purrr)
+library(HDInterval)
+library(grid)
+library(ggridges)
 registerDoParallel()
 registerDoRNG(2488620)
 
 post_0 <- read.csv(file="estim_0_Aug11.csv", header=TRUE)
 post_01 <- read.csv(file="estim_01_July13.csv", header=TRUE)
 post_02 <- read.csv(file="estim_02_Sep1.csv", header=TRUE)
-# post_03 <- read.csv(file="estim_03.csv", header=TRUE)
-# post_04 <- read.csv(file="estim_04.csv", header=TRUE)
+post_03 <- read.csv(file="estim_03_Sep1.csv", header=TRUE)
+post_04 <- read.csv(file="estim_04_Sep1.csv", header=TRUE)
 post_05 <- read.csv(file="estim_05_July16.csv", header=TRUE)
-# post_06 <- read.csv(file="estim_06.csv", header=TRUE)
-# post_07 <- read.csv(file="estim_07.csv", header=TRUE)
+post_06 <- read.csv(file="estim_06_Sep8.csv", header=TRUE)
+post_07 <- read.csv(file="estim_07_Sep8.csv", header=TRUE)
 # post_08 <- read.csv(file="estim_08.csv", header=TRUE)
 post_09 <- read.csv(file="estim_09_July16.csv", header=TRUE)
 post_1 <- read.csv(file="estim_1_Aug19.csv", header=TRUE)
 
-w_vec <- c(0, 0.1, 0.2, 0.5, 0.9, 1)
-post_list <- list(post_0, post_01, post_02, post_05,
-                  post_09, post_1)
+w_vec <- c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.9, 1)
+post_list <- list(post_0, post_01, post_02, post_03, post_04, post_05,
+                  post_06, post_07, post_09, post_1)
 
 AR_post_list <- list()
 
@@ -46,7 +52,7 @@ Data %>% pomp(
 
 
 
-for (j in 1:6) {
+for (j in 1:length(w_vec)) {
   # Grab the fresh, unmodified posterior from your list
   posterior <- post_list[[j]]
   
@@ -118,36 +124,60 @@ for (j in 1:6) {
 }
 
 ########################################
-# 3. Plot matching your custom template
-ggplot(AR_post_list[[5]], aes(x = diff_AR)) +
-  theme_minimal() +
-  
-  # Histogram & Density overlay using density scaling
-  geom_histogram(aes(y = after_stat(density)), fill = "#D55E00", color = "#D55E00", position = "identity", alpha = 0.2, bins = 50) +
-  geom_density(fill = "#D55E00", color = "#D55E00", alpha = 0.2, adjust = 2) +
-  
-  # Labels and Axis Formatting
-  labs(
-    title = "w=1",
-    x = expression(Delta ~ "Attack Rate" ~ (H[0]-H[A])),
-    y = "Density"
-  ) +
-  scale_x_continuous(n.breaks = 6) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.2)), n.breaks = 6) +
-  
-  # Theme and Font Sizing matching your original setup
-  theme(
-    title = element_text(size = 20, face = "bold"),
-    strip.text = element_text(size = 20),
-    axis.title.x = element_text(size = 20),
-    axis.title.y = element_text(size = 20),
-    axis.text = element_text(size = 15, color = "black"),
-    panel.spacing = unit(0, "lines"),
-    legend.position = "none"
-  )
 
-library(dplyr)
-library(purrr)
+# Combine all posterior samples into one dataframe
+plot_dat <- map_dfr(seq_along(AR_post_list), function(i) {
+  data.frame(diff_AR = AR_post_list[[i]]$diff_AR,
+             k = i,
+             w = w_vec[i])
+})
+
+# Compute 95% HDI for each w
+hdi_dat <- map_dfr(seq_along(AR_post_list), function(i) {
+  h <- hdi(AR_post_list[[i]]$diff_AR, ci = 0.95)
+  data.frame(k = i,
+             w = w_vec[i],
+             low = h[1],
+             high = h[2])
+})
+
+# Faceted plot
+ggplot(plot_dat, aes(x = diff_AR)) +
+  theme_minimal() +
+  geom_histogram(aes(y = after_stat(density)),
+                 fill = "#D55E00",
+                 color = "#D55E00",
+                 alpha = 0.2,
+                 bins = 50) +
+  geom_density(fill = "#D55E00",
+               color = "#D55E00",
+               alpha = 0.2,
+               adjust = 2) +
+  geom_rect(data = hdi_dat,
+            aes(xmin = low,
+                xmax = high,
+                ymin = 0,
+                ymax = Inf),
+            inherit.aes = FALSE,
+            alpha = 0.1,
+            fill = "grey20") +
+  geom_vline(xintercept = 0,
+             color = "red",
+             linewidth = 0.75,
+             linetype = 2) +
+  facet_wrap(~paste0("w = ", w), ncol = 4) +
+  labs(x = expression(Delta ~ "Attack Rate" ~ (H[0] - H[A])),
+       y = "Density") +
+  scale_x_continuous(n.breaks = 6) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2)),
+                     n.breaks = 6) +
+  theme(strip.text = element_text(size = 20),
+        axis.title.x = element_text(size = 20),
+        axis.title.y = element_text(size = 20),
+        axis.text = element_text(size = 15, color = "black"),
+        panel.spacing = unit(0.5, "lines"),
+        legend.position = "none")
+
 
 # Combine the list of dataframes into one master plotting dataframe
 plot_data <- imap_dfr(AR_post_list, function(df, idx) {
@@ -160,23 +190,9 @@ plot_data <- imap_dfr(AR_post_list, function(df, idx) {
     filter(!is.na(diff_AR))
 })
 
-library(ggplot2)
-library(ggridges)
-
-ggplot(plot_data, aes(x = diff_AR, y = as.factor(w_true), fill = w_true)) + 
-  geom_density_ridges(alpha = 0.7, scale = 1) + 
-  scale_fill_viridis_c(option = "plasma") + 
-  theme_ridges() + 
-  labs(x = "Δ Attack Rate (H0 - HA)", y = "Weight (w)") +
-  # Custom adjustments must come AFTER theme_ridges() to override its defaults
-  theme(
-    legend.position = "none",
-    axis.title.x = element_text(hjust = 0.5),
-    axis.title.y = element_text(hjust = 0.5)
-  )
 
 ggplot(plot_data, aes(x = diff_AR, y = as.factor(w_true), fill = w_true, color = w_true)) + 
-  geom_density_ridges(alpha = 0.7, scale = 1.5, bandwidth = 0.0005) +
+  geom_density_ridges(alpha = 0.5, scale = 1.5, bandwidth = 0.0005) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "black", linewidth = 1.0) +
   scale_fill_viridis_c(option = "viridis") + 
   scale_color_viridis_c(option = "viridis") + # Ensures the outlines match the fill color scale
@@ -188,4 +204,95 @@ ggplot(plot_data, aes(x = diff_AR, y = as.factor(w_true), fill = w_true, color =
     axis.title.y = element_text(hjust = 0.5)
   )
 
+################################
+
+posterior_mode <- function(x) {
+  d <- density(x)
+  d$x[which.max(d$y)]
+}
+
+sum_df <- plot_data %>%
+  group_by(w_true) %>%
+  summarise(
+    mode = posterior_mode(diff_AR),
+    lower = hdi(diff_AR, ci = 0.95)["lower"],
+    upper = hdi(diff_AR, ci = 0.95)["upper"],
+    .groups = "drop"
+  ) 
+
+latex_tab <- sum_df %>%
+  mutate(
+    Weight = paste0(w_true),
+    HDI = paste0(
+      "[",
+      signif(lower, 2),
+      ", ",
+      signif(upper, 2),
+      "]"
+    ),
+    `MAP Estimate` = signif(mode, 2)
+  ) %>%
+  select(
+    Weight,
+    `MAP Estimate`,
+    `95\\% HDI` = HDI
+  )
+
+kable(
+  latex_tab,
+  format = "latex",
+  booktabs = TRUE,
+  caption = "Parameter estimation results including MAP estimates, 95\\% HDIs and true values across all simulation scenarios.",
+  align = c("l","l","l","l","l")
+)
+
+hdi_df <- sum_df %>%
+  mutate(
+    y = seq_along(w_true),
+    ymin = y - 0,
+    ymax = y + 1
+  )
+
+ggplot(plot_data,
+       aes(x = diff_AR,
+           y = as.factor(w_true),
+           fill = w_true,
+           color = w_true)) +
+  geom_rect(
+    data = hdi_df,
+    aes(
+      xmin = lower,
+      xmax = upper,
+      ymin = ymin,
+      ymax = ymax
+    ),
+    inherit.aes = FALSE,
+    fill = "grey50",
+    alpha = 0.4
+  ) +
+  geom_density_ridges(
+    alpha = 0.35,
+    scale = 1.5,
+    bandwidth = 0.0005
+  ) +
+  geom_vline(
+    xintercept = 0,
+    linetype = "dashed",
+    color = "black",
+    linewidth = 1
+  ) +
+  scale_fill_viridis_c(option = "plasma", direction = -1) +
+  scale_color_viridis_c(option = "plasma", direction = -1)+
+  theme_ridges() +
+  labs(
+    x = expression(Delta*" Attack Rate ("*H[0]-H[A]*")"),
+    y = "Importance Weight (w)"
+  ) +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_text(size = 24, hjust = 0.5),
+    axis.title.y = element_text(size = 24, hjust = 0.5),
+    axis.text.x  = element_text(size = 22),
+    axis.text.y  = element_text(size = 22)
+  )
 
