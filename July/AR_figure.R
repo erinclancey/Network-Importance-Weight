@@ -6,6 +6,7 @@ library(purrr)
 library(HDInterval)
 library(grid)
 library(ggridges)
+library(knitr)
 registerDoParallel()
 registerDoRNG(2488620)
 
@@ -17,13 +18,13 @@ post_04 <- read.csv(file="estim_04_Sep1.csv", header=TRUE)
 post_05 <- read.csv(file="estim_05_July16.csv", header=TRUE)
 post_06 <- read.csv(file="estim_06_Sep8.csv", header=TRUE)
 post_07 <- read.csv(file="estim_07_Sep8.csv", header=TRUE)
-# post_08 <- read.csv(file="estim_08.csv", header=TRUE)
+post_08 <- read.csv(file="estim_08_Sep8.csv", header=TRUE)
 post_09 <- read.csv(file="estim_09_July16.csv", header=TRUE)
 post_1 <- read.csv(file="estim_1_Aug19.csv", header=TRUE)
 
-w_vec <- c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.9, 1)
+w_vec <- c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
 post_list <- list(post_0, post_01, post_02, post_03, post_04, post_05,
-                  post_06, post_07, post_09, post_1)
+                  post_06, post_07, post_08, post_09, post_1)
 
 AR_post_list <- list()
 
@@ -166,17 +167,24 @@ ggplot(plot_dat, aes(x = diff_AR)) +
              linewidth = 0.75,
              linetype = 2) +
   facet_wrap(~paste0("w = ", w), ncol = 4) +
-  labs(x = expression(Delta ~ "Attack Rate" ~ (H[0] - H[A])),
-       y = "Density") +
-  scale_x_continuous(n.breaks = 6) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.2)),
-                     n.breaks = 6) +
-  theme(strip.text = element_text(size = 20),
-        axis.title.x = element_text(size = 20),
-        axis.title.y = element_text(size = 20),
-        axis.text = element_text(size = 15, color = "black"),
-        panel.spacing = unit(0.5, "lines"),
-        legend.position = "none")
+  labs(
+    title = expression("Posterior Distribution of " ~ Delta ~ "Attack Rate"),
+    x = expression(Delta ~ "Attack Rate" ~ (H[0] - H[A])),
+    y = "Density"
+  ) +
+  theme(
+    plot.title = element_text(
+      size = 28,
+      face = "bold",
+      hjust = 0.5
+    ),
+    strip.text = element_text(size = 20),
+    axis.title.x = element_text(size = 20),
+    axis.title.y = element_text(size = 20),
+    axis.text = element_text(size = 15, color = "black"),
+    panel.spacing = unit(0.5, "lines"),
+    legend.position = "none"
+  )
 
 
 # Combine the list of dataframes into one master plotting dataframe
