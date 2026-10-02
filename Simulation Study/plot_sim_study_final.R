@@ -17,7 +17,12 @@ sim_df <- sim_df_updated
 sim_df <- na.omit(sim_df)
 nrow(sim_df)
 
+
+# Percent convergence
 sim_df <- subset(sim_df, sim_df$Gel_w<1.05 & sim_df$Gel_beta <1.05 & sim_df$Gel_k<1.05)
+nrow(sim_df)
+
+# Coverage
 sim_df <- sim_df %>%
   mutate(
     w_inHDI = ifelse(w_true >= w_low_H & w_true <= w_hi_H, 1, 0),
@@ -28,6 +33,26 @@ sim_df <- sim_df %>%
 mean(sim_df$w_true >= sim_df$w_low_H & sim_df$w_true <= sim_df$w_hi_H)
 mean(sim_df$beta_par_true >= sim_df$beta_par_low_H & sim_df$beta_par_true <= sim_df$beta_par_hi_H)
 mean(sim_df$k_true >= sim_df$k_low_H & sim_df$k_true <= sim_df$k_hi_H)
+sum(sim_df$w_true >= sim_df$w_low_H & sim_df$w_true <= sim_df$w_hi_H)
+sum(sim_df$beta_par_true >= sim_df$beta_par_low_H & sim_df$beta_par_true <= sim_df$beta_par_hi_H)
+sum(sim_df$k_true >= sim_df$k_low_H & sim_df$k_true <= sim_df$k_hi_H)
+
+# Relative Bias, RMSE and COR 
+
+sim_df %>%
+  summarize(
+    w_rel_bias = 100 * mean((w_mode - w_true) / w_true),
+    w_rmse     = sqrt(mean((w_mode - w_true)^2)),
+    w_cor      = cor(w_true, w_mode),
+    
+    beta_rel_bias = 100 * mean((beta_par_mode - beta_par_true) / beta_par_true),
+    beta_rmse     = sqrt(mean((beta_par_mode - beta_par_true)^2)),
+    beta_cor      = cor(beta_par_true, beta_par_mode),
+    
+    k_rel_bias = 100 * mean((k_mode - k_true) / k_true),
+    k_rmse     = sqrt(mean((k_mode - k_true)^2)),
+    k_cor      = cor(k_true, k_mode)
+  )
 
 #####SET 1
 # Make linear prediction for plots
