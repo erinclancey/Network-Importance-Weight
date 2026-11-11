@@ -45,9 +45,9 @@ sim_df %>%
     w_rmse     = sqrt(mean((w_mode - w_true)^2)),
     w_cor      = cor(w_true, w_mode),
     
-    beta_rel_bias = 100 * mean((beta_par_mode - beta_par_true) / beta_par_true),
-    beta_rmse     = sqrt(mean((beta_par_mode - beta_par_true)^2)),
-    beta_cor      = cor(beta_par_true, beta_par_mode),
+    beta_rel_bias = 100 * mean((beta_par_mode/10000 - beta_par_true/10000) / beta_par_true/10000),
+    beta_rmse     = sqrt(mean((beta_par_mode/10000 - beta_par_true/10000)^2)),
+    beta_cor      = cor(beta_par_true/10000, beta_par_mode/10000),
     
     k_rel_bias = 100 * mean((k_mode - k_true) / k_true),
     k_rmse     = sqrt(mean((k_mode - k_true)^2)),
